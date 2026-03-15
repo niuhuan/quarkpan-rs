@@ -161,6 +161,13 @@ pub struct FinishRequest {
     pub task_id: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct DeleteFilesRequest {
+    pub action_type: u8,
+    pub exclude_fids: Vec<String>,
+    pub filelist: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct UpAuthAndCommitRequest {
     pub md5s: Vec<String>,
@@ -193,6 +200,7 @@ pub type UpHashResponse = Response<UpHashResponseData, EmptyMetadata>;
 pub type AuthResponse = Response<AuthResponseData, EmptyMetadata>;
 pub type FinishResponse = Response<EmptyData, EmptyMetadata>;
 pub type ListFolderResponse = Response<ListFolderData, ListFolderMetadata>;
+pub type DeleteFilesResponse = Response<EmptyData, EmptyMetadata>;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ListFolderData {

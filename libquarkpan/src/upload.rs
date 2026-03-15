@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use futures_core::Stream;
@@ -214,23 +215,18 @@ where
         )));
     }
 
-    session
-        .api
-        .up_auth_and_commit(UpAuthAndCommitRequest {
-            md5s: state.part_etags,
-            callback: session.callback.clone(),
-            bucket: session.bucket.clone(),
-            obj_key: session.obj_key.clone(),
-            upload_id: session.upload_id.clone(),
-            auth_info: session.auth_info.clone(),
-            task_id: session.task_id.clone(),
-            upload_url: session.upload_url.clone(),
-        })
-        .await?;
-    session
-        .api
-        .finish(&session.obj_key, &session.task_id)
-        .await?;
+    let commit_request = UpAuthAndCommitRequest {
+        md5s: state.part_etags,
+        callback: session.callback.clone(),
+        bucket: session.bucket.clone(),
+        obj_key: session.obj_key.clone(),
+        upload_id: session.upload_id.clone(),
+        auth_info: session.auth_info.clone(),
+        task_id: session.task_id.clone(),
+        upload_url: session.upload_url.clone(),
+    };
+    retry_async(3, || session.api.up_auth_and_commit(commit_request.clone())).await?;
+    retry_async(3, || session.api.finish(&session.obj_key, &session.task_id)).await?;
     Ok(UploadComplete {
         file_id: session.file_id,
         rapid_upload: false,
@@ -238,33 +234,69 @@ where
 }
 
 async fn upload_part(session: &UploadSession, part_number: u32, bytes: Bytes) -> Result<String> {
-    let utc_time = chrono::Utc::now()
-        .format("%a, %d %b %Y %H:%M:%S GMT")
-        .to_string();
-    let auth_meta = session.api.up_part_auth_meta(
-        &session.mime_type,
-        &utc_time,
-        &session.bucket,
-        &session.obj_key,
-        part_number,
-        &session.upload_id,
-    );
-    let auth = session
-        .api
-        .auth(&session.auth_info, &auth_meta, &session.task_id)
-        .await?;
-    session
-        .api
-        .up_part(UpPartMethodRequest {
-            auth_key: auth.data.auth_key,
-            mime_type: session.mime_type.clone(),
-            utc_time,
-            bucket: session.bucket.clone(),
-            upload_url: session.upload_url.clone(),
-            obj_key: session.obj_key.clone(),
+    let mut delay = Duration::from_secs(1);
+    let mut last_err = None;
+    for _attempt in 0..3 {
+        let utc_time = chrono::Utc::now()
+            .format("%a, %d %b %Y %H:%M:%S GMT")
+            .to_string();
+        let auth_meta = session.api.up_part_auth_meta(
+            &session.mime_type,
+            &utc_time,
+            &session.bucket,
+            &session.obj_key,
             part_number,
-            upload_id: session.upload_id.clone(),
-            part_bytes: bytes,
-        })
-        .await
+            &session.upload_id,
+        );
+        match session
+            .api
+            .auth(&session.auth_info, &auth_meta, &session.task_id)
+            .await
+        {
+            Ok(auth) => match session
+                .api
+                .up_part(UpPartMethodRequest {
+                    auth_key: auth.data.auth_key,
+                    mime_type: session.mime_type.clone(),
+                    utc_time,
+                    bucket: session.bucket.clone(),
+                    upload_url: session.upload_url.clone(),
+                    obj_key: session.obj_key.clone(),
+                    part_number,
+                    upload_id: session.upload_id.clone(),
+                    part_bytes: bytes.clone(),
+                })
+                .await
+            {
+                Ok(etag) => return Ok(etag),
+                Err(err) => last_err = Some(err),
+            },
+            Err(err) => last_err = Some(err),
+        }
+        tokio::time::sleep(delay).await;
+        delay = delay.saturating_mul(2);
+    }
+    Err(last_err.unwrap_or_else(|| QuarkPanError::invalid_argument("upload part failed")))
+}
+
+async fn retry_async<T, Fut, F>(attempts: u32, mut f: F) -> Result<T>
+where
+    Fut: std::future::Future<Output = Result<T>>,
+    F: FnMut() -> Fut,
+{
+    let mut delay = Duration::from_secs(1);
+    let mut last_err = None;
+    for idx in 0..attempts {
+        match f().await {
+            Ok(value) => return Ok(value),
+            Err(err) => {
+                last_err = Some(err);
+                if idx + 1 < attempts {
+                    tokio::time::sleep(delay).await;
+                    delay = delay.saturating_mul(2);
+                }
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| QuarkPanError::invalid_argument("retry failed")))
 }

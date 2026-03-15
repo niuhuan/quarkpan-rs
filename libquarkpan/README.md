@@ -11,12 +11,14 @@
 - 用 Cookie 构造 `QuarkPan` 客户端
 - 列出指定目录 ID 下的内容
 - 在指定父目录下创建目录
+- 删除指定文件或目录项
 - 按文件 ID 获取下载信息和下载流
 - 上传预检
 - 快传判断
 - 分片上传
 - 上传和下载的进度统计
 - 传输取消
+- 上传分片级重试与完成阶段重试
 - 导出 `UploadResume` / `UploadResumeState` 供上层做断点续传
 
 ## 设计边界
@@ -27,6 +29,7 @@
 - 下载当前只支持按 `file_id`
 - 上传和下载首先暴露流接口，不直接内置“从文件路径到写盘完成”的一体化 API
 - 路径解析、目录缓存、任务文件持久化由上层应用或 CLI 负责
+- 文件夹级同步和任务编排主要由 CLI 或上层应用负责
 
 这种设计的目的是避免把上层业务策略耦合进底层库。
 
@@ -65,6 +68,12 @@ let folder_id = quark_pan
     .prepare()?
     .request()
     .await?;
+```
+
+### 删除文件或目录项
+
+```rust
+quark_pan.delete_file("fid").await?;
 ```
 
 ### 下载文件
@@ -139,6 +148,14 @@ let completed = session.upload_stream(stream).await?;
 - JSON 解析失败
 - IO 错误
 - 用户取消传输
+
+## 取消与恢复
+
+如果上层把下载流或上传流与 `TransferControl` 结合使用：
+
+- 调用 `cancel()` 后传输会返回 `QuarkPanError::Cancelled`
+- 库不会自动清理任务文件
+- 是否恢复、如何恢复由上层自行决定
 
 ## 适合放在 examples 或上层应用中的逻辑
 

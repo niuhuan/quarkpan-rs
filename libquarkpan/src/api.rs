@@ -7,17 +7,15 @@ use dashmap::DashMap;
 use futures_util::StreamExt;
 use reqwest::StatusCode;
 use reqwest::header::{HeaderMap, HeaderValue, RANGE};
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use reqwest_retry::policies::ExponentialBackoff;
-use reqwest_retry::{Jitter, RetryTransientMiddleware};
 use serde::Serialize;
 
 use crate::error::{QuarkPanError, Result};
 use crate::model::{
-    AuthRequest, AuthResponse, CreateFolderRequest, CreateFolderResponse, DownloadInfo, EmptyData,
-    FileDownloadUrlItem, FinishRequest, FinishResponse, GetFilesDownloadUrlsRequest,
-    GetFilesDownloadUrlsResponse, ListFolderResponse, ListPage, Response, UpAuthAndCommitRequest,
-    UpHashRequest, UpHashResponse, UpPartMethodRequest, UpPreRequest, UpPreResponse,
+    AuthRequest, AuthResponse, CreateFolderRequest, CreateFolderResponse, DeleteFilesRequest,
+    DeleteFilesResponse, DownloadInfo, EmptyData, FileDownloadUrlItem, FinishRequest,
+    FinishResponse, GetFilesDownloadUrlsRequest, GetFilesDownloadUrlsResponse, ListFolderResponse,
+    ListPage, Response, UpAuthAndCommitRequest, UpHashRequest, UpHashResponse, UpPartMethodRequest,
+    UpPreRequest, UpPreResponse,
 };
 
 const ORIGIN: &str = "https://pan.quark.cn";
@@ -33,7 +31,7 @@ pub struct ApiConfig {
 #[derive(Clone)]
 pub struct ApiClient {
     config: ApiConfig,
-    client: ClientWithMiddleware,
+    client: reqwest::Client,
     download_client: reqwest::Client,
 }
 
@@ -42,11 +40,6 @@ impl ApiClient {
         let mut headers = HeaderMap::new();
         headers.insert("Origin", HeaderValue::from_static(ORIGIN));
         headers.insert("Referer", HeaderValue::from_static(REFERER));
-        let retry_policy = ExponentialBackoff::builder()
-            .retry_bounds(Duration::from_millis(100), Duration::from_secs(5))
-            .jitter(Jitter::Bounded)
-            .base(2)
-            .build_with_max_retries(5);
         let pool_size: usize = min(num_cpus::get().saturating_mul(2), 16).max(3);
         let client = reqwest::Client::builder()
             .user_agent(UA)
@@ -56,9 +49,6 @@ impl ApiClient {
             .pool_max_idle_per_host(pool_size)
             .timeout(Duration::from_secs(300))
             .build()?;
-        let client = ClientBuilder::new(client)
-            .with(RetryTransientMiddleware::new_with_policy(retry_policy))
-            .build();
         let download_client = reqwest::Client::builder()
             .user_agent(UA)
             .default_headers(headers)
@@ -211,6 +201,25 @@ impl ApiClient {
             )
             .await?;
         Ok(self.ensure_ok(res)?.data.fid)
+    }
+
+    pub async fn delete_file(&self, file_id: &str) -> Result<()> {
+        let req = DeleteFilesRequest {
+            action_type: 2,
+            exclude_fids: Vec::new(),
+            filelist: vec![file_id.to_string()],
+        };
+        let res: DeleteFilesResponse = self
+            .post_json(
+                format!(
+                    "{}/1/clouddrive/file/delete?pr=ucpro&fr=pc",
+                    self.config.api_base_url
+                ),
+                &req,
+            )
+            .await?;
+        self.ensure_ok(res)?;
+        Ok(())
     }
 
     pub async fn list_folder(&self, folder_id: &str, page: u32, size: u32) -> Result<ListPage> {

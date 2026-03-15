@@ -19,9 +19,6 @@ pub enum QuarkPanError {
     #[error("http error: {0}")]
     Http(#[from] reqwest::Error),
 
-    #[error("http middleware error: {0}")]
-    HttpMiddleware(#[from] reqwest_middleware::Error),
-
     #[error("json error: {0}")]
     Serde(#[from] serde_json::Error),
 

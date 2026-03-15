@@ -12,14 +12,19 @@
 当前 workspace 重点覆盖以下能力：
 
 - 使用 Quark Cookie 构造客户端
+- 平台标准配置目录中的 Cookie 持久化
 - 列出目录内容
 - 创建目录
 - 按文件 ID 下载
+- 按目录 ID 批量下载目录
 - 上传预检和快传判断
 - 非快传场景下的分片上传
+- 批量上传本地目录
 - 传输进度监听
+- 仅在交互式终端中显示彩色进度条
 - Ctrl+C 取消传输
 - 基于 `${filename}.quark.task` 的 CLI 恢复机制
+- 基于 `目录名.quark.task` 的目录任务恢复机制
 
 目前接口仍然以文件 ID 和目录 ID 为主，路径解析和更高层缓存策略预留给上层应用。
 
@@ -50,8 +55,62 @@
 - 直接通过 `--cookie 'k1=v1; k2=v2'` 传入
 - 或写入文件后通过 `--cookie-file ./cookie.txt` 读取
 - 或在 CLI 中使用环境变量 `QUARK_COOKIE`
+- 或通过 `quarkpan auth set-cookie` 持久化到系统配置目录
 
 Cookie 需要是完整的 `key=value; key2=value2` 形式。
+`quarkpan auth set-cookie` 需要显式指定输入来源，例如 `--from-stdin`、`--from-nano` 或 `--from-vi`。
+使用 `--from-stdin` 时，CLI 会先提示粘贴 Cookie 再回车。
+
+## 典型操作步骤
+
+首次使用：
+
+```bash
+pbpaste | quarkpan auth set-cookie --from-stdin
+quarkpan auth show-source
+```
+
+单文件下载并支持恢复：
+
+```bash
+quarkpan download --file-id <fid> --output ./file.bin
+quarkpan download --file-id <fid> --output ./file.bin -c
+```
+
+单文件上传并支持恢复：
+
+```bash
+quarkpan upload --file ./file.bin --parent-folder 0
+quarkpan upload --file ./file.bin --parent-folder 0 -c
+```
+
+目录下载并支持恢复：
+
+```bash
+quarkpan download-dir --folder-id <folder_id> --output ./backup
+quarkpan download-dir --folder-id <folder_id> --output ./backup -c
+quarkpan download-dir --folder-id <folder_id> --output ./backup -c -o
+```
+
+目录上传并支持恢复：
+
+```bash
+quarkpan upload-dir --dir ./photos --parent-folder 0
+quarkpan upload-dir --dir ./photos --parent-folder 0 -c
+quarkpan upload-dir --dir ./photos --parent-folder 0 -c -o
+```
+
+`Ctrl+C` 行为：
+
+- 会立即取消当前传输
+- 不会删除已生成的 `.quark.task`
+- 之后可用 `-c` 继续
+
+进度条行为：
+
+- 只在交互式 TTY 中显示
+- 定时任务、管道、重定向默认不显示
+- 上传和下载都会显示当前文件名
 
 ## 文档
 

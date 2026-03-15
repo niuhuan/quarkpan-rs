@@ -57,6 +57,11 @@ impl QuarkPan {
     pub fn list(&self) -> ListBuilder {
         ListBuilder::new(self.inner.clone())
     }
+
+    /// Deletes a file or folder entry by id.
+    pub async fn delete_file(&self, file_id: &str) -> Result<()> {
+        self.inner.api.delete_file(file_id).await
+    }
 }
 
 #[derive(Default)]

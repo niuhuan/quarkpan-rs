@@ -74,6 +74,15 @@ impl TransferControl {
         current.transferred = current.transferred.saturating_add(delta);
         let _ = self.inner.progress_tx.send(current);
     }
+
+    /// Marks the transfer as complete so progress UIs can render a final 100% state.
+    pub fn finish(&self) {
+        let mut current = *self.inner.progress_tx.borrow();
+        if let Some(total) = current.total {
+            current.transferred = total;
+        }
+        let _ = self.inner.progress_tx.send(current);
+    }
 }
 
 pin_project! {
