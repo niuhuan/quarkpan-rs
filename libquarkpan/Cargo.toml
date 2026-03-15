@@ -1,0 +1,37 @@
+[package]
+name = "libquarkpan"
+version = { workspace = true }
+edition = "2024"
+description = "Async Rust client library for Quark Drive upload, download, listing, and folder creation"
+license = "GPL-3.0-only"
+readme = "README.md"
+homepage = { workspace = true }
+documentation = "https://docs.rs/libquarkpan"
+repository = { workspace = true }
+keywords = ["quark", "quark-drive", "cloud-drive", "upload", "download"]
+categories = ["api-bindings", "asynchronous"]
+
+[dependencies]
+anyhow = "1.0.98"
+base64 = "0.22.1"
+bytes = "1.10.1"
+chrono = { version = "0.4", features = ["alloc"] }
+dashmap = "7.0.0-rc2"
+futures-core = "0.3.31"
+futures-util = "0.3.31"
+htmlescape = "0.3.1"
+md5 = "0.7.0"
+mime_guess = "2.0.5"
+moka = { version = "0.12.10", features = ["future"] }
+num_cpus = "1.17.0"
+pin-project-lite = "0.2.16"
+reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest-middleware = { version = "0.4.2", features = ["json"] }
+reqwest-retry = "0.7"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sha1 = "0.10.0"
+thiserror = "2.0.12"
+tokio = { version = "1.45.1", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync"] }
+tokio-util = { version = "0.7.13", features = ["io"] }
+url = "2.5.4"
