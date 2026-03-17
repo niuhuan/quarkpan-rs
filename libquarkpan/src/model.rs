@@ -9,8 +9,8 @@ use crate::error::Result;
 pub type BoxByteStream =
     Pin<Box<dyn Stream<Item = std::result::Result<Bytes, crate::QuarkPanError>> + Send>>;
 
-/// Quark folder id. The root folder id is `"0"`.
-pub type FolderId = String;
+/// Quark fid string. The root directory fid is `"0"`.
+pub type Fid = String;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Response<T, U> {
@@ -61,7 +61,7 @@ pub struct FileDownloadUrlItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadInfo {
-    pub file_id: String,
+    pub fid: String,
     pub download_url: String,
     pub md5: Option<String>,
 }
@@ -78,6 +78,12 @@ pub struct CreateFolderRequest {
     pub file_name: String,
     pub dir_path: String,
     pub dir_init_lock: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct RenameFileRequest {
+    pub fid: String,
+    pub file_name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -195,6 +201,7 @@ pub struct UpPartMethodRequest {
 
 pub type GetFilesDownloadUrlsResponse = Response<Vec<FileDownloadUrlItem>, EmptyMetadata>;
 pub type CreateFolderResponse = Response<CreateFolderData, EmptyMetadata>;
+pub type RenameFileResponse = Response<EmptyData, EmptyMetadata>;
 pub type UpPreResponse = Response<UpPreResponseData, UpPreResponseMetaData>;
 pub type UpHashResponse = Response<UpHashResponseData, EmptyMetadata>;
 pub type AuthResponse = Response<AuthResponseData, EmptyMetadata>;
@@ -219,7 +226,7 @@ pub struct ListFolderMetadata {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UploadResume {
-    pub file_id: String,
+    pub fid: String,
     pub size: u64,
     pub mime_type: String,
     pub part_size: u64,
@@ -241,7 +248,7 @@ pub struct UploadResumeState {
 #[derive(Clone)]
 pub struct UploadSession {
     pub(crate) api: crate::api::ApiClient,
-    pub(crate) file_id: String,
+    pub(crate) fid: String,
     pub(crate) size: u64,
     pub(crate) mime_type: String,
     pub(crate) part_size: u64,
@@ -255,15 +262,15 @@ pub struct UploadSession {
 }
 
 impl UploadSession {
-    /// Returns the target file id created during upload preparation.
-    pub fn file_id(&self) -> &str {
-        &self.file_id
+    /// Returns the target fid created during upload preparation.
+    pub fn fid(&self) -> &str {
+        &self.fid
     }
 
     /// Exports the upload state so it can be resumed by another process later.
     pub fn to_resume(&self) -> UploadResume {
         UploadResume {
-            file_id: self.file_id.clone(),
+            fid: self.fid.clone(),
             size: self.size,
             mime_type: self.mime_type.clone(),
             part_size: self.part_size,
@@ -303,12 +310,12 @@ impl UploadSession {
 }
 
 pub enum UploadPrepareResult {
-    RapidUploaded { file_id: String },
+    RapidUploaded { fid: String },
     NeedUpload(UploadSession),
 }
 
 /// Final upload result after either rapid-upload or streaming upload.
 pub struct UploadComplete {
-    pub file_id: String,
+    pub fid: String,
     pub rapid_upload: bool,
 }

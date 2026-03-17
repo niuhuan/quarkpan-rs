@@ -55,6 +55,7 @@ enum Commands {
     Download(DownloadArgs),
     DownloadDir(DownloadDirArgs),
     Folder(FolderArgs),
+    Rename(RenameArgs),
     Upload(UploadArgs),
     UploadDir(UploadDirArgs),
 }
@@ -94,7 +95,7 @@ struct ImportCookieArgs {
 #[derive(Args, Debug, Clone)]
 struct ListArgs {
     #[arg(long, default_value = "0")]
-    folder_id: String,
+    pdir_fid: String,
     #[arg(long, default_value_t = 1)]
     page: u32,
     #[arg(long, default_value_t = 100)]
@@ -112,7 +113,7 @@ struct ListArgs {
 #[derive(Args, Debug, Clone)]
 struct DownloadArgs {
     #[arg(long)]
-    file_id: String,
+    fid: String,
     #[arg(long)]
     output: Option<PathBuf>,
     #[arg(long)]
@@ -130,7 +131,7 @@ struct DownloadArgs {
 #[derive(Args, Debug, Clone)]
 struct DownloadDirArgs {
     #[arg(long)]
-    folder_id: String,
+    pdir_fid: String,
     #[arg(long)]
     output: PathBuf,
     #[arg(long = "continue", short = 'c')]
@@ -157,19 +158,27 @@ enum FolderCommand {
 #[derive(Args, Debug)]
 struct FolderCreateArgs {
     #[arg(long, default_value = "0")]
-    parent_folder: String,
+    pdir_fid: String,
     #[arg(long)]
-    name: String,
+    file_name: String,
+}
+
+#[derive(Args, Debug, Clone)]
+struct RenameArgs {
+    #[arg(long)]
+    fid: String,
+    #[arg(long)]
+    file_name: String,
 }
 
 #[derive(Args, Debug, Clone)]
 struct UploadArgs {
     #[arg(long, default_value = "0")]
-    parent_folder: String,
+    pdir_fid: String,
     #[arg(long)]
     file: PathBuf,
     #[arg(long)]
-    name: Option<String>,
+    file_name: Option<String>,
     #[arg(long, short = 'c')]
     r#continue: bool,
     #[arg(long, short = 'o')]
@@ -179,11 +188,11 @@ struct UploadArgs {
 #[derive(Args, Debug, Clone)]
 struct UploadDirArgs {
     #[arg(long, default_value = "0")]
-    parent_folder: String,
+    pdir_fid: String,
     #[arg(long)]
     dir: PathBuf,
     #[arg(long)]
-    name: Option<String>,
+    file_name: Option<String>,
     #[arg(long, short = 'c')]
     r#continue: bool,
     #[arg(long, short = 'o')]
@@ -211,18 +220,24 @@ struct AppPaths {
     cookie_file: PathBuf,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct FolderCreateOutput {
-    folder_id: String,
+    fid: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UploadDoneOutput {
-    file_id: String,
+    fid: String,
     rapid_upload: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
+struct RenameOutput {
+    fid: String,
+    file_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct AuthSourceOutput {
     source: String,
     path: Option<String>,
@@ -239,7 +254,7 @@ struct HashOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DownloadTask {
     kind: String,
-    file_id: String,
+    fid: String,
     output_path: String,
     md5: Option<String>,
 }
@@ -249,7 +264,7 @@ struct UploadTask {
     kind: String,
     file_path: String,
     file_name: String,
-    parent_folder: String,
+    pdir_fid: String,
     size: u64,
     md5: String,
     sha1: String,
@@ -270,7 +285,7 @@ enum DirEntryStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DownloadDirEntryTask {
     relative_path: String,
-    file_id: String,
+    fid: String,
     md5: Option<String>,
     status: DirEntryStatus,
 }
@@ -278,7 +293,7 @@ struct DownloadDirEntryTask {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DownloadDirTask {
     kind: String,
-    folder_id: String,
+    pdir_fid: String,
     output_dir: String,
     entries: Vec<DownloadDirEntryTask>,
 }
@@ -293,16 +308,16 @@ struct UploadDirEntryTask {
 struct UploadDirTask {
     kind: String,
     source_dir: String,
-    parent_folder: String,
-    target_folder_name: String,
-    root_folder_id: String,
+    pdir_fid: String,
+    target_file_name: String,
+    root_fid: String,
     entries: Vec<UploadDirEntryTask>,
 }
 
 #[derive(Debug, Clone)]
 struct RemoteFileItem {
     relative_path: PathBuf,
-    file_id: String,
+    fid: String,
 }
 
 #[derive(Debug, Clone)]
@@ -355,6 +370,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Download(args) => handle_download(flags, &quark_pan, args).await?,
         Commands::DownloadDir(args) => handle_download_dir(flags, &quark_pan, args).await?,
         Commands::Folder(args) => handle_folder(flags, &quark_pan, args).await?,
+        Commands::Rename(args) => handle_rename(flags, &quark_pan, args).await?,
         Commands::Upload(args) => handle_upload(flags, &quark_pan, args).await?,
         Commands::UploadDir(args) => handle_upload_dir(flags, &quark_pan, args).await?,
     }
@@ -511,7 +527,7 @@ async fn handle_list(
     args: ListArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if args.all {
-        let page = list_all_entries(quark_pan, &args.folder_id, args.size).await?;
+        let page = list_all_entries(quark_pan, &args.pdir_fid, args.size).await?;
         let page = ListPage {
             entries: page,
             page: 1,
@@ -525,7 +541,7 @@ async fn handle_list(
     }
     let page = quark_pan
         .list()
-        .folder_id(args.folder_id)
+        .pdir_fid(args.pdir_fid)
         .page(args.page)
         .size(args.size)
         .prepare()?
@@ -544,7 +560,7 @@ async fn handle_list_more(
     loop {
         let page = quark_pan
             .list()
-            .folder_id(args.folder_id.clone())
+            .pdir_fid(args.pdir_fid.clone())
             .page(page_no)
             .size(args.size)
             .prepare()?
@@ -642,10 +658,7 @@ async fn download_file(
             "exactly one of --output or --stdout is required",
         )));
     }
-    let request = quark_pan
-        .download()
-        .file_id(args.file_id.clone())
-        .prepare()?;
+    let request = quark_pan.download().fid(args.fid.clone()).prepare()?;
     if args.stdout {
         let mut stream = request.stream().await?;
         let mut stdout = tokio::io::stdout();
@@ -669,8 +682,7 @@ async fn download_file(
     }
 
     if let Some(task) = read_json_file::<DownloadTask>(&task_path).await? {
-        let same_target =
-            task.file_id == args.file_id && task.output_path == output.to_string_lossy();
+        let same_target = task.fid == args.fid && task.output_path == output.to_string_lossy();
         if !same_target {
             cleanup_download_artifacts(&output, &task_path).await?;
         }
@@ -688,7 +700,7 @@ async fn download_file(
 
     let task = DownloadTask {
         kind: "download".to_string(),
-        file_id: args.file_id.clone(),
+        fid: args.fid.clone(),
         output_path: output.to_string_lossy().to_string(),
         md5: info.md5.clone(),
     };
@@ -697,7 +709,7 @@ async fn download_file(
     download_with_retry(
         flags,
         quark_pan,
-        &args.file_id,
+        &args.fid,
         &output,
         args.continue_download,
         args.retry,
@@ -721,7 +733,7 @@ async fn download_file(
 async fn download_with_retry(
     flags: OutputFlags,
     quark_pan: &QuarkPan,
-    file_id: &str,
+    fid: &str,
     output: &Path,
     allow_continue: bool,
     retry: u32,
@@ -745,7 +757,7 @@ async fn download_with_retry(
             0
         };
 
-        let mut builder = quark_pan.download().file_id(file_id.to_string());
+        let mut builder = quark_pan.download().fid(fid.to_string());
         if start_offset > 0 {
             builder = builder.start_offset(start_offset);
         }
@@ -835,16 +847,16 @@ async fn handle_download_dir(
     }
 
     tokio::fs::create_dir_all(&args.output).await?;
-    let files = collect_remote_files(quark_pan, &args.folder_id, Path::new("")).await?;
+    let files = collect_remote_files(quark_pan, &args.pdir_fid, Path::new("")).await?;
     let mut task = existing_task.unwrap_or(DownloadDirTask {
         kind: "download_dir".to_string(),
-        folder_id: args.folder_id.clone(),
+        pdir_fid: args.pdir_fid.clone(),
         output_dir: args.output.to_string_lossy().to_string(),
         entries: files
             .iter()
             .map(|item| DownloadDirEntryTask {
                 relative_path: item.relative_path.to_string_lossy().to_string(),
-                file_id: item.file_id.clone(),
+                fid: item.fid.clone(),
                 md5: None,
                 status: DirEntryStatus::Pending,
             })
@@ -866,7 +878,7 @@ async fn handle_download_dir(
 
         let info = quark_pan
             .download()
-            .file_id(task.entries[idx].file_id.clone())
+            .fid(task.entries[idx].fid.clone())
             .prepare()?
             .info()
             .await?;
@@ -887,7 +899,7 @@ async fn handle_download_dir(
         task.entries[idx].status = DirEntryStatus::Running;
         write_json_file(&task_path, &task).await?;
         let file_args = DownloadArgs {
-            file_id: task.entries[idx].file_id.clone(),
+            fid: task.entries[idx].fid.clone(),
             output: Some(output_path),
             stdout: false,
             overwrite: merge_mode,
@@ -917,16 +929,38 @@ async fn handle_folder(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match args.command {
         FolderCommand::Create(args) => {
-            let folder_id = quark_pan
+            let fid = quark_pan
                 .create_folder()
-                .parent_folder(args.parent_folder)
-                .name(args.name)
+                .pdir_fid(args.pdir_fid)
+                .file_name(args.file_name)
                 .prepare()?
                 .request()
                 .await?;
-            print_output(flags, &FolderCreateOutput { folder_id })?;
+            print_output(flags, &FolderCreateOutput { fid })?;
         }
     }
+    Ok(())
+}
+
+async fn handle_rename(
+    flags: OutputFlags,
+    quark_pan: &QuarkPan,
+    args: RenameArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
+    quark_pan
+        .rename()
+        .fid(args.fid.clone())
+        .file_name(args.file_name.clone())
+        .prepare()?
+        .request()
+        .await?;
+    print_output(
+        flags,
+        &RenameOutput {
+            fid: args.fid,
+            file_name: args.file_name,
+        },
+    )?;
     Ok(())
 }
 
@@ -940,11 +974,11 @@ async fn handle_upload(
         return resume_upload(flags, quark_pan, args, task_path).await;
     }
 
-    let local = hash_file(&args.file, args.name.as_deref()).await?;
+    let local = hash_file(&args.file, args.file_name.as_deref()).await?;
     let prepared = quark_pan
         .upload()
-        .parent_folder(args.parent_folder.clone())
-        .name(local.name.clone())
+        .pdir_fid(args.pdir_fid.clone())
+        .file_name(local.name.clone())
         .size(local.size)
         .md5(local.md5.clone())
         .sha1(local.sha1.clone())
@@ -952,12 +986,12 @@ async fn handle_upload(
         .await?;
 
     match prepared {
-        UploadPrepareResult::RapidUploaded { file_id } => {
+        UploadPrepareResult::RapidUploaded { fid } => {
             remove_if_exists(&task_path).await?;
             print_output(
                 flags,
                 &UploadDoneOutput {
-                    file_id,
+                    fid,
                     rapid_upload: true,
                 },
             )?;
@@ -967,7 +1001,7 @@ async fn handle_upload(
                 kind: "upload".to_string(),
                 file_path: args.file.to_string_lossy().to_string(),
                 file_name: local.name.clone(),
-                parent_folder: args.parent_folder,
+                pdir_fid: args.pdir_fid,
                 size: local.size,
                 md5: local.md5,
                 sha1: local.sha1,
@@ -990,7 +1024,7 @@ async fn handle_upload(
             print_output(
                 flags,
                 &UploadDoneOutput {
-                    file_id: completed.file_id,
+                    fid: completed.fid,
                     rapid_upload: completed.rapid_upload,
                 },
             )?;
@@ -1029,7 +1063,7 @@ async fn resume_upload(
     print_output(
         flags,
         &UploadDoneOutput {
-            file_id: completed.file_id,
+            fid: completed.fid,
             rapid_upload: completed.rapid_upload,
         },
     )?;
@@ -1044,7 +1078,7 @@ async fn handle_upload_dir(
     let source_dir = tokio::fs::canonicalize(&args.dir).await?;
     let task_path = dir_task_path(&source_dir)?;
     let existing_task = read_json_file::<UploadDirTask>(&task_path).await?;
-    let root_name = args.name.clone().unwrap_or_else(|| {
+    let root_name = args.file_name.clone().unwrap_or_else(|| {
         source_dir
             .file_name()
             .and_then(|v| v.to_str())
@@ -1053,10 +1087,10 @@ async fn handle_upload_dir(
     });
     let merge_mode = args.r#continue && args.overwrite;
 
-    let root_folder_id = if let Some(task) = &existing_task {
-        task.root_folder_id.clone()
+    let root_fid = if let Some(task) = &existing_task {
+        task.root_fid.clone()
     } else {
-        let existing = find_entry_by_name(quark_pan, &args.parent_folder, &root_name).await?;
+        let existing = find_entry_by_name(quark_pan, &args.pdir_fid, &root_name).await?;
         match existing {
             Some(entry) if entry.dir && !args.r#continue && !args.overwrite => {
                 return Err(Box::new(QuarkPanError::invalid_argument(
@@ -1077,8 +1111,8 @@ async fn handle_upload_dir(
             None => {
                 quark_pan
                     .create_folder()
-                    .parent_folder(args.parent_folder.clone())
-                    .name(root_name.clone())
+                    .pdir_fid(args.pdir_fid.clone())
+                    .file_name(root_name.clone())
                     .prepare()?
                     .request()
                     .await?
@@ -1090,9 +1124,9 @@ async fn handle_upload_dir(
     let mut task = existing_task.unwrap_or(UploadDirTask {
         kind: "upload_dir".to_string(),
         source_dir: source_dir.to_string_lossy().to_string(),
-        parent_folder: args.parent_folder.clone(),
-        target_folder_name: root_name.clone(),
-        root_folder_id: root_folder_id.clone(),
+        pdir_fid: args.pdir_fid.clone(),
+        target_file_name: root_name.clone(),
+        root_fid: root_fid.clone(),
         entries: files
             .iter()
             .map(|item| UploadDirEntryTask {
@@ -1104,7 +1138,7 @@ async fn handle_upload_dir(
     write_json_file(&task_path, &task).await?;
 
     let mut folder_cache = HashMap::new();
-    folder_cache.insert(PathBuf::new(), root_folder_id);
+    folder_cache.insert(PathBuf::new(), root_fid);
 
     for idx in 0..task.entries.len() {
         if matches!(
@@ -1125,7 +1159,7 @@ async fn handle_upload_dir(
         let remote_parent = ensure_remote_folder_chain(
             quark_pan,
             &mut folder_cache,
-            &task.root_folder_id,
+            &task.root_fid,
             &parent_relative,
         )
         .await?;
@@ -1155,7 +1189,7 @@ async fn handle_upload_dir(
             let local = hash_file(&absolute_path, Some(&file_name)).await?;
             let remote = quark_pan
                 .download()
-                .file_id(existing.fid.clone())
+                .fid(existing.fid.clone())
                 .prepare()?
                 .info()
                 .await?;
@@ -1166,13 +1200,13 @@ async fn handle_upload_dir(
                     continue;
                 }
             }
-            quark_pan.delete_file(&existing.fid).await?;
+            quark_pan.delete(&existing.fid).await?;
         }
 
         let upload_args = UploadArgs {
-            parent_folder: remote_parent,
+            pdir_fid: remote_parent,
             file: absolute_path,
-            name: Some(file_name),
+            file_name: Some(file_name),
             r#continue: false,
             overwrite: false,
         };
@@ -1250,7 +1284,7 @@ where
 
 async fn list_all_entries(
     quark_pan: &QuarkPan,
-    folder_id: &str,
+    pdir_fid: &str,
     size: u32,
 ) -> Result<Vec<QuarkEntry>, Box<dyn std::error::Error>> {
     let mut page_no = 1;
@@ -1258,7 +1292,7 @@ async fn list_all_entries(
     loop {
         let page = quark_pan
             .list()
-            .folder_id(folder_id.to_string())
+            .pdir_fid(pdir_fid.to_string())
             .page(page_no)
             .size(size)
             .prepare()?
@@ -1276,13 +1310,13 @@ async fn list_all_entries(
 
 async fn collect_remote_files(
     quark_pan: &QuarkPan,
-    folder_id: &str,
+    pdir_fid: &str,
     prefix: &Path,
 ) -> Result<Vec<RemoteFileItem>, Box<dyn std::error::Error>> {
     let mut out = Vec::new();
-    let mut stack = vec![(folder_id.to_string(), prefix.to_path_buf())];
-    while let Some((current_folder_id, current_prefix)) = stack.pop() {
-        let entries = list_all_entries(quark_pan, &current_folder_id, 100).await?;
+    let mut stack = vec![(pdir_fid.to_string(), prefix.to_path_buf())];
+    while let Some((current_pdir_fid, current_prefix)) = stack.pop() {
+        let entries = list_all_entries(quark_pan, &current_pdir_fid, 100).await?;
         for entry in entries {
             let path = current_prefix.join(&entry.file_name);
             if entry.dir {
@@ -1290,7 +1324,7 @@ async fn collect_remote_files(
             } else {
                 out.push(RemoteFileItem {
                     relative_path: path,
-                    file_id: entry.fid,
+                    fid: entry.fid,
                 });
             }
         }
@@ -1330,27 +1364,27 @@ async fn collect_local_files_inner(
 
 async fn find_entry_by_name(
     quark_pan: &QuarkPan,
-    folder_id: &str,
+    pdir_fid: &str,
     name: &str,
 ) -> Result<Option<QuarkEntry>, Box<dyn std::error::Error>> {
-    let entries = list_all_entries(quark_pan, folder_id, 100).await?;
+    let entries = list_all_entries(quark_pan, pdir_fid, 100).await?;
     Ok(entries.into_iter().find(|entry| entry.file_name == name))
 }
 
 async fn ensure_remote_folder_chain(
     quark_pan: &QuarkPan,
     cache: &mut HashMap<PathBuf, String>,
-    root_folder_id: &str,
+    root_fid: &str,
     relative: &Path,
 ) -> Result<String, Box<dyn std::error::Error>> {
     if relative.as_os_str().is_empty() {
-        return Ok(root_folder_id.to_string());
+        return Ok(root_fid.to_string());
     }
     if let Some(found) = cache.get(relative) {
         return Ok(found.clone());
     }
     let mut current_rel = PathBuf::new();
-    let mut current_id = root_folder_id.to_string();
+    let mut current_id = root_fid.to_string();
     for component in relative.components() {
         current_rel.push(component.as_os_str());
         if let Some(found) = cache.get(&current_rel) {
@@ -1370,8 +1404,8 @@ async fn ensure_remote_folder_chain(
             } else {
                 quark_pan
                     .create_folder()
-                    .parent_folder(current_id.clone())
-                    .name(name)
+                    .pdir_fid(current_id.clone())
+                    .file_name(name)
                     .prepare()?
                     .request()
                     .await?
@@ -1501,11 +1535,36 @@ fn print_output<T: Serialize>(
     flags: OutputFlags,
     data: &T,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let Ok(upload) = serde_json::from_value::<UploadDoneOutput>(serde_json::to_value(data)?) {
+    let value = serde_json::to_value(data)?;
+    if let Ok(upload) = serde_json::from_value::<UploadDoneOutput>(value.clone()) {
         let rendered = if upload.rapid_upload {
-            format!("rapid upload completed: {}", upload.file_id)
+            format!("rapid upload completed: {}", upload.fid)
         } else {
-            format!("upload completed: {}", upload.file_id)
+            format!("upload completed: {}", upload.fid)
+        };
+        if flags.color {
+            println!("{}", rendered.green());
+        } else {
+            println!("{rendered}");
+        }
+    } else if let Ok(rename) = serde_json::from_value::<RenameOutput>(value.clone()) {
+        let rendered = format!("renamed {} -> {}", rename.fid, rename.file_name);
+        if flags.color {
+            println!("{}", rendered.green());
+        } else {
+            println!("{rendered}");
+        }
+    } else if let Ok(folder) = serde_json::from_value::<FolderCreateOutput>(value.clone()) {
+        let rendered = format!("folder created: {}", folder.fid);
+        if flags.color {
+            println!("{}", rendered.green());
+        } else {
+            println!("{rendered}");
+        }
+    } else if let Ok(auth) = serde_json::from_value::<AuthSourceOutput>(value.clone()) {
+        let rendered = match auth.path {
+            Some(path) => format!("{}: {}", auth.source, path),
+            None => auth.source,
         };
         if flags.color {
             println!("{}", rendered.green());
@@ -1513,7 +1572,7 @@ fn print_output<T: Serialize>(
             println!("{rendered}");
         }
     } else {
-        let rendered = serde_json::to_string_pretty(data)?;
+        let rendered = serde_json::to_string_pretty(&value)?;
         if flags.color {
             println!("{}", rendered.green());
         } else {

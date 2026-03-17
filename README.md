@@ -15,6 +15,7 @@
 - 平台标准配置目录中的 Cookie 持久化
 - 列出目录内容
 - 创建目录
+- 重命名文件或目录项
 - 按文件 ID 下载
 - 按目录 ID 批量下载目录
 - 上传预检和快传判断
@@ -73,31 +74,37 @@ quarkpan auth show-source
 单文件下载并支持恢复：
 
 ```bash
-quarkpan download --file-id <fid> --output ./file.bin
-quarkpan download --file-id <fid> --output ./file.bin -c
+quarkpan download --fid <fid> --output ./file.bin
+quarkpan download --fid <fid> --output ./file.bin -c
 ```
 
 单文件上传并支持恢复：
 
 ```bash
-quarkpan upload --file ./file.bin --parent-folder 0
-quarkpan upload --file ./file.bin --parent-folder 0 -c
+quarkpan upload --file ./file.bin --pdir-fid 0
+quarkpan upload --file ./file.bin --pdir-fid 0 -c
 ```
 
 目录下载并支持恢复：
 
 ```bash
-quarkpan download-dir --folder-id <folder_id> --output ./backup
-quarkpan download-dir --folder-id <folder_id> --output ./backup -c
-quarkpan download-dir --folder-id <folder_id> --output ./backup -c -o
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup -c
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup -c -o
 ```
 
 目录上传并支持恢复：
 
 ```bash
-quarkpan upload-dir --dir ./photos --parent-folder 0
-quarkpan upload-dir --dir ./photos --parent-folder 0 -c
-quarkpan upload-dir --dir ./photos --parent-folder 0 -c -o
+quarkpan upload-dir --dir ./photos --pdir-fid 0
+quarkpan upload-dir --dir ./photos --pdir-fid 0 -c
+quarkpan upload-dir --dir ./photos --pdir-fid 0 -c -o
+```
+
+重命名文件或目录项：
+
+```bash
+quarkpan rename --fid <fid> --file-name 新名字
 ```
 
 `Ctrl+C` 行为：

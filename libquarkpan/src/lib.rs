@@ -4,6 +4,7 @@ mod error;
 mod folder;
 mod list;
 mod model;
+mod rename;
 mod transfer;
 mod upload;
 
@@ -12,9 +13,10 @@ pub use crate::error::{QuarkPanError, Result};
 pub use crate::folder::CreateFolderBuilder;
 pub use crate::list::{ListBuilder, ListRequest};
 pub use crate::model::{
-    DownloadInfo, FolderId, ListPage, QuarkEntry, UploadComplete, UploadPrepareResult,
-    UploadResume, UploadResumeState, UploadSession,
+    DownloadInfo, Fid, ListPage, QuarkEntry, UploadComplete, UploadPrepareResult, UploadResume,
+    UploadResumeState, UploadSession,
 };
+pub use crate::rename::{RenameBuilder, RenameRequest};
 pub use crate::transfer::{ProgressStream, TransferControl, TransferProgress};
 pub use crate::upload::UploadBuilder;
 
@@ -38,7 +40,7 @@ impl QuarkPan {
         QuarkPanBuilder::default()
     }
 
-    /// Creates a builder for downloading a file by file id.
+    /// Creates a builder for downloading by fid.
     pub fn download(&self) -> DownloadBuilder {
         DownloadBuilder::new(self.inner.clone())
     }
@@ -53,14 +55,19 @@ impl QuarkPan {
         CreateFolderBuilder::new(self.inner.clone())
     }
 
-    /// Creates a builder for listing folder contents by folder id.
+    /// Creates a builder for listing entries by parent directory fid.
     pub fn list(&self) -> ListBuilder {
         ListBuilder::new(self.inner.clone())
     }
 
-    /// Deletes a file or folder entry by id.
-    pub async fn delete_file(&self, file_id: &str) -> Result<()> {
-        self.inner.api.delete_file(file_id).await
+    /// Creates a builder for renaming an entry by fid.
+    pub fn rename(&self) -> RenameBuilder {
+        RenameBuilder::new(self.inner.clone())
+    }
+
+    /// Deletes an entry by fid.
+    pub async fn delete(&self, fid: &str) -> Result<()> {
+        self.inner.api.delete(fid).await
     }
 }
 

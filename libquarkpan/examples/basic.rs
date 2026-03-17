@@ -21,21 +21,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let quark_pan = QuarkPan::builder().cookie(cookie).prepare()?;
     let prepared = quark_pan
         .upload()
-        .parent_folder("0")
-        .name(file_name)
+        .pdir_fid("0")
+        .file_name(file_name)
         .size(size)
         .md5(md5)
         .sha1(sha1)
-        .prepare()?
         .prepare()
         .await?;
 
     match prepared {
-        UploadPrepareResult::RapidUploaded { file_id } => {
-            println!("rapid uploaded: {file_id}");
+        UploadPrepareResult::RapidUploaded { fid } => {
+            println!("rapid uploaded: {fid}");
         }
         UploadPrepareResult::NeedUpload(session) => {
-            let file_id = session.file_id().to_string();
+            let fid = session.fid().to_string();
             let file = tokio::fs::File::open(&file_path).await?;
             let control = TransferControl::new(Some(size));
             let mut progress_rx = control.subscribe();
@@ -53,14 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let completed = session.upload_stream(stream).await?;
             println!(
                 "uploaded: {}, rapid={}",
-                completed.file_id, completed.rapid_upload
+                completed.fid, completed.rapid_upload
             );
-            let mut download = quark_pan
-                .download()
-                .file_id(file_id)
-                .prepare()?
-                .stream()
-                .await?;
+            let mut download = quark_pan.download().fid(fid).prepare()?.stream().await?;
             while let Some(chunk) = futures_util::StreamExt::next(&mut download).await {
                 let chunk = chunk?;
                 println!("downloaded chunk: {}", chunk.len());

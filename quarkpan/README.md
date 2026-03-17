@@ -14,6 +14,8 @@
   列出目录内容
 - `folder create`
   创建目录
+- `rename`
+  重命名文件或目录项
 - `download`
   下载文件
 - `download-dir`
@@ -113,63 +115,69 @@ quarkpan auth set-cookie --from-vi
 ### 逐页查看更多
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' list --folder-id 0 --more
+quarkpan --cookie 'k1=v1; k2=v2' list --pdir-fid 0 --more
 ```
 
 ### 创建目录
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' folder create --parent-folder 0 --name 我的文档
+quarkpan --cookie 'k1=v1; k2=v2' folder create --pdir-fid 0 --file-name 我的文档
+```
+
+### 重命名文件或目录项
+
+```bash
+quarkpan --cookie 'k1=v1; k2=v2' rename --fid <fid> --file-name 新名字
 ```
 
 ### 下载文件
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' download --file-id <fid> --output ./file.bin
+quarkpan --cookie 'k1=v1; k2=v2' download --fid <fid> --output ./file.bin
 ```
 
 ### 恢复下载
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' download --file-id <fid> --output ./file.bin -c
+quarkpan --cookie 'k1=v1; k2=v2' download --fid <fid> --output ./file.bin -c
 ```
 
 ### 下载目录
 
 ```bash
-quarkpan download-dir --folder-id <folder_id> --output ./backup
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup
 ```
 
 ### 恢复或合并目录下载
 
 ```bash
-quarkpan download-dir --folder-id <folder_id> --output ./backup -c
-quarkpan download-dir --folder-id <folder_id> --output ./backup -c -o
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup -c
+quarkpan download-dir --pdir-fid <pdir_fid> --output ./backup -c -o
 ```
 
 ### 上传文件
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' upload --file ./file.bin --parent-folder 0
+quarkpan --cookie 'k1=v1; k2=v2' upload --file ./file.bin --pdir-fid 0
 ```
 
 ### 恢复上传
 
 ```bash
-quarkpan --cookie 'k1=v1; k2=v2' upload --file ./file.bin --parent-folder 0 -c
+quarkpan --cookie 'k1=v1; k2=v2' upload --file ./file.bin --pdir-fid 0 -c
 ```
 
 ### 上传目录
 
 ```bash
-quarkpan upload-dir --dir ./photos --parent-folder 0
+quarkpan upload-dir --dir ./photos --pdir-fid 0
 ```
 
 ### 恢复或合并目录上传
 
 ```bash
-quarkpan upload-dir --dir ./photos --parent-folder 0 -c
-quarkpan upload-dir --dir ./photos --parent-folder 0 -c -o
+quarkpan upload-dir --dir ./photos --pdir-fid 0 -c
+quarkpan upload-dir --dir ./photos --pdir-fid 0 -c -o
 ```
 
 ## 任务文件说明

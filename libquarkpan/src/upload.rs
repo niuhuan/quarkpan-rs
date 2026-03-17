@@ -14,8 +14,8 @@ use crate::model::{
 
 pub struct UploadBuilder {
     inner: Arc<QuarkPanInner>,
-    parent_folder: String,
-    name: Option<String>,
+    pdir_fid: String,
+    file_name: Option<String>,
     size: Option<u64>,
     md5: Option<String>,
     sha1: Option<String>,
@@ -25,23 +25,23 @@ impl UploadBuilder {
     pub(crate) fn new(inner: Arc<QuarkPanInner>) -> Self {
         Self {
             inner,
-            parent_folder: "0".to_string(),
-            name: None,
+            pdir_fid: "0".to_string(),
+            file_name: None,
             size: None,
             md5: None,
             sha1: None,
         }
     }
 
-    /// Sets the parent folder id. Defaults to the root folder `"0"`.
-    pub fn parent_folder(mut self, parent_folder: impl Into<String>) -> Self {
-        self.parent_folder = parent_folder.into();
+    /// Sets the parent directory fid. Defaults to the root folder `"0"`.
+    pub fn pdir_fid(mut self, pdir_fid: impl Into<String>) -> Self {
+        self.pdir_fid = pdir_fid.into();
         self
     }
 
     /// Sets the file name to create in Quark Drive.
-    pub fn name(mut self, name: impl Into<String>) -> Self {
-        self.name = Some(name.into());
+    pub fn file_name(mut self, file_name: impl Into<String>) -> Self {
+        self.file_name = Some(file_name.into());
         self
     }
 
@@ -66,9 +66,9 @@ impl UploadBuilder {
     /// Validates the upload parameters, sends the upload preflight request,
     /// and returns either a rapid-upload result or a resumable upload session.
     pub async fn prepare(self) -> Result<UploadPrepareResult> {
-        let name = self
-            .name
-            .ok_or_else(|| QuarkPanError::missing_field("name"))?;
+        let file_name = self
+            .file_name
+            .ok_or_else(|| QuarkPanError::missing_field("file_name"))?;
         let size = self
             .size
             .ok_or_else(|| QuarkPanError::missing_field("size"))?;
@@ -81,26 +81,22 @@ impl UploadBuilder {
         let pre = self
             .inner
             .api
-            .up_pre(&name, size, &self.parent_folder)
+            .up_pre(&file_name, size, &self.pdir_fid)
             .await?;
         if pre.data.finish {
-            return Ok(UploadPrepareResult::RapidUploaded {
-                file_id: pre.data.fid,
-            });
+            return Ok(UploadPrepareResult::RapidUploaded { fid: pre.data.fid });
         }
         let task_id = pre.data.task_id.clone();
         let hash = self.inner.api.up_hash(&md5, &sha1, &task_id).await?;
         if hash.data.finish {
-            return Ok(UploadPrepareResult::RapidUploaded {
-                file_id: pre.data.fid,
-            });
+            return Ok(UploadPrepareResult::RapidUploaded { fid: pre.data.fid });
         }
         let upload_id = pre.data.upload_id.ok_or_else(|| {
             QuarkPanError::invalid_argument("missing upload_id in prepare response")
         })?;
         Ok(UploadPrepareResult::NeedUpload(UploadSession {
             api: self.inner.api.clone(),
-            file_id: pre.data.fid,
+            fid: pre.data.fid,
             size,
             mime_type: if pre.data.format_type.is_empty() {
                 "application/octet-stream".to_string()
@@ -129,7 +125,7 @@ impl UploadBuilder {
     pub fn resume(self, resume: UploadResume) -> UploadSession {
         UploadSession {
             api: self.inner.api.clone(),
-            file_id: resume.file_id,
+            fid: resume.fid,
             size: resume.size,
             mime_type: resume.mime_type,
             part_size: resume.part_size,
@@ -228,7 +224,7 @@ where
     retry_async(3, || session.api.up_auth_and_commit(commit_request.clone())).await?;
     retry_async(3, || session.api.finish(&session.obj_key, &session.task_id)).await?;
     Ok(UploadComplete {
-        file_id: session.file_id,
+        fid: session.fid,
         rapid_upload: false,
     })
 }

@@ -14,8 +14,8 @@ use crate::model::{
     AuthRequest, AuthResponse, CreateFolderRequest, CreateFolderResponse, DeleteFilesRequest,
     DeleteFilesResponse, DownloadInfo, EmptyData, FileDownloadUrlItem, FinishRequest,
     FinishResponse, GetFilesDownloadUrlsRequest, GetFilesDownloadUrlsResponse, ListFolderResponse,
-    ListPage, Response, UpAuthAndCommitRequest, UpHashRequest, UpHashResponse, UpPartMethodRequest,
-    UpPreRequest, UpPreResponse,
+    ListPage, RenameFileRequest, RenameFileResponse, Response, UpAuthAndCommitRequest,
+    UpHashRequest, UpHashResponse, UpPartMethodRequest, UpPreRequest, UpPreResponse,
 };
 
 const ORIGIN: &str = "https://pan.quark.cn";
@@ -171,7 +171,7 @@ impl ApiClient {
             .into_iter()
             .next()
             .map(|item: FileDownloadUrlItem| DownloadInfo {
-                file_id: item.fid,
+                fid: item.fid,
                 download_url: item.download_url,
                 md5: item.md5,
             })
@@ -184,10 +184,10 @@ impl ApiClient {
         Ok(self.get_download_info(fid).await?.download_url)
     }
 
-    pub async fn create_folder(&self, parent_folder: &str, name: &str) -> Result<String> {
+    pub async fn create_folder(&self, pdir_fid: &str, file_name: &str) -> Result<String> {
         let req = CreateFolderRequest {
-            pdir_fid: parent_folder.to_string(),
-            file_name: name.to_string(),
+            pdir_fid: pdir_fid.to_string(),
+            file_name: file_name.to_string(),
             dir_path: String::new(),
             dir_init_lock: false,
         };
@@ -203,11 +203,29 @@ impl ApiClient {
         Ok(self.ensure_ok(res)?.data.fid)
     }
 
-    pub async fn delete_file(&self, file_id: &str) -> Result<()> {
+    pub async fn rename(&self, fid: &str, file_name: &str) -> Result<()> {
+        let req = RenameFileRequest {
+            fid: fid.to_string(),
+            file_name: file_name.to_string(),
+        };
+        let res: RenameFileResponse = self
+            .post_json(
+                format!(
+                    "{}/1/clouddrive/file/rename?pr=ucpro&fr=pc&uc_param_str=",
+                    self.rename_api_base_url()
+                ),
+                &req,
+            )
+            .await?;
+        self.ensure_ok(res)?;
+        Ok(())
+    }
+
+    pub async fn delete(&self, fid: &str) -> Result<()> {
         let req = DeleteFilesRequest {
             action_type: 2,
             exclude_fids: Vec::new(),
-            filelist: vec![file_id.to_string()],
+            filelist: vec![fid.to_string()],
         };
         let res: DeleteFilesResponse = self
             .post_json(
@@ -222,12 +240,12 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn list_folder(&self, folder_id: &str, page: u32, size: u32) -> Result<ListPage> {
+    pub async fn list_folder(&self, pdir_fid: &str, page: u32, size: u32) -> Result<ListPage> {
         let res: ListFolderResponse = self
             .get_json(
                 format!(
                     "{}/1/clouddrive/file/sort?pr=ucpro&fr=pc&&pdir_fid={}&_page={}&_size={}&_fetch_total=1&_fetch_sub_dirs=0&_sort=file_type:asc,updated_at:desc,",
-                    self.config.api_base_url, folder_id, page, size
+                    self.config.api_base_url, pdir_fid, page, size
                 ),
             )
             .await?;
@@ -244,7 +262,7 @@ impl ApiClient {
         &self,
         file_name: &str,
         size: u64,
-        parent_folder: &str,
+        pdir_fid: &str,
     ) -> Result<UpPreResponse> {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -253,7 +271,7 @@ impl ApiClient {
         let req = UpPreRequest {
             file_name: file_name.to_string(),
             size,
-            pdir_fid: parent_folder.to_string(),
+            pdir_fid: pdir_fid.to_string(),
             format_type: get_format_type(file_name).to_string(),
             ccp_hash_update: true,
             l_created_at: now,
@@ -442,6 +460,15 @@ impl ApiClient {
             .bytes_stream()
             .map(|chunk| chunk.map_err(QuarkPanError::from));
         Ok(Box::pin(stream))
+    }
+}
+
+impl ApiClient {
+    fn rename_api_base_url(&self) -> String {
+        self.config
+            .api_base_url
+            .replace("https://drive.quark.cn", "https://drive-pc.quark.cn")
+            .replace("http://drive.quark.cn", "http://drive-pc.quark.cn")
     }
 }
 

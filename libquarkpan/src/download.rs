@@ -6,7 +6,7 @@ use crate::model::{BoxByteStream, DownloadInfo};
 
 pub struct DownloadBuilder {
     inner: Arc<QuarkPanInner>,
-    file_id: Option<String>,
+    fid: Option<String>,
     start_offset: Option<u64>,
 }
 
@@ -14,14 +14,14 @@ impl DownloadBuilder {
     pub(crate) fn new(inner: Arc<QuarkPanInner>) -> Self {
         Self {
             inner,
-            file_id: None,
+            fid: None,
             start_offset: None,
         }
     }
 
-    /// Sets the file id to download.
-    pub fn file_id(mut self, file_id: impl Into<String>) -> Self {
-        self.file_id = Some(file_id.into());
+    /// Sets the target fid to download.
+    pub fn fid(mut self, fid: impl Into<String>) -> Self {
+        self.fid = Some(fid.into());
         self
     }
 
@@ -33,12 +33,12 @@ impl DownloadBuilder {
 
     /// Prepares the download request.
     pub fn prepare(self) -> Result<DownloadRequest> {
-        let file_id = self
-            .file_id
-            .ok_or_else(|| QuarkPanError::missing_field("file_id"))?;
+        let fid = self
+            .fid
+            .ok_or_else(|| QuarkPanError::missing_field("fid"))?;
         Ok(DownloadRequest {
             inner: self.inner,
-            file_id,
+            fid,
             start_offset: self.start_offset,
         })
     }
@@ -46,21 +46,21 @@ impl DownloadBuilder {
 
 pub struct DownloadRequest {
     inner: Arc<QuarkPanInner>,
-    file_id: String,
+    fid: String,
     start_offset: Option<u64>,
 }
 
 impl DownloadRequest {
     /// Fetches the current download metadata, including the temporary url and md5 when available.
     pub async fn info(&self) -> Result<DownloadInfo> {
-        self.inner.api.get_download_info(&self.file_id).await
+        self.inner.api.get_download_info(&self.fid).await
     }
 
     /// Opens a byte stream for the target file.
     pub async fn stream(&self) -> Result<BoxByteStream> {
         self.inner
             .api
-            .download_stream(&self.file_id, self.start_offset)
+            .download_stream(&self.fid, self.start_offset)
             .await
     }
 }

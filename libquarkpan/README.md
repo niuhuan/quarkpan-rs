@@ -9,10 +9,11 @@
 当前版本支持：
 
 - 用 Cookie 构造 `QuarkPan` 客户端
-- 列出指定目录 ID 下的内容
-- 在指定父目录下创建目录
+- 列出指定 `pdir_fid` 下的内容
+- 在指定 `pdir_fid` 下创建目录
+- 重命名指定文件或目录项
 - 删除指定文件或目录项
-- 按文件 ID 获取下载信息和下载流
+- 按 `fid` 获取下载信息和下载流
 - 上传预检
 - 快传判断
 - 分片上传
@@ -25,8 +26,8 @@
 
 当前库刻意保留了以下边界：
 
-- 根目录默认使用目录 ID `"0"`
-- 下载当前只支持按 `file_id`
+- 根目录默认使用 `pdir_fid = "0"`
+- 下载当前只支持按 `fid`
 - 上传和下载首先暴露流接口，不直接内置“从文件路径到写盘完成”的一体化 API
 - 路径解析、目录缓存、任务文件持久化由上层应用或 CLI 负责
 - 文件夹级同步和任务编排主要由 CLI 或上层应用负责
@@ -50,7 +51,7 @@ let quark_pan = QuarkPan::builder()
 ```rust
 let page = quark_pan
     .list()
-    .folder_id("0")
+    .pdir_fid("0")
     .page(1)
     .size(100)
     .prepare()?
@@ -61,10 +62,10 @@ let page = quark_pan
 ### 创建目录
 
 ```rust
-let folder_id = quark_pan
+let fid = quark_pan
     .create_folder()
-    .parent_folder("0")
-    .name("我的文档")
+    .pdir_fid("0")
+    .file_name("我的文档")
     .prepare()?
     .request()
     .await?;
@@ -73,7 +74,19 @@ let folder_id = quark_pan
 ### 删除文件或目录项
 
 ```rust
-quark_pan.delete_file("fid").await?;
+quark_pan.delete("fid").await?;
+```
+
+### 重命名文件或目录项
+
+```rust
+quark_pan
+    .rename()
+    .fid("fid")
+    .file_name("新的名字")
+    .prepare()?
+    .request()
+    .await?;
 ```
 
 ### 下载文件
@@ -81,7 +94,7 @@ quark_pan.delete_file("fid").await?;
 ```rust
 let request = quark_pan
     .download()
-    .file_id("your-file-id")
+    .fid("your-file-id")
     .prepare()?;
 
 let info = request.info().await?;
@@ -101,8 +114,8 @@ let mut stream = request.stream().await?;
 ```rust
 let prepared = quark_pan
     .upload()
-    .parent_folder("0")
-    .name("1.xlsx")
+    .pdir_fid("0")
+    .file_name("1.xlsx")
     .size(123)
     .md5("...")
     .sha1("...")

@@ -7,7 +7,7 @@ use crate::model::ListPage;
 /// Builder for listing the contents of a Quark folder.
 pub struct ListBuilder {
     inner: Arc<QuarkPanInner>,
-    folder_id: String,
+    pdir_fid: String,
     page: u32,
     size: u32,
 }
@@ -16,15 +16,15 @@ impl ListBuilder {
     pub(crate) fn new(inner: Arc<QuarkPanInner>) -> Self {
         Self {
             inner,
-            folder_id: "0".to_string(),
+            pdir_fid: "0".to_string(),
             page: 1,
             size: 100,
         }
     }
 
-    /// Sets the folder id to list. Defaults to the root folder `"0"`.
-    pub fn folder_id(mut self, folder_id: impl Into<String>) -> Self {
-        self.folder_id = folder_id.into();
+    /// Sets the parent directory fid to list. Defaults to the root folder `"0"`.
+    pub fn pdir_fid(mut self, pdir_fid: impl Into<String>) -> Self {
+        self.pdir_fid = pdir_fid.into();
         self
     }
 
@@ -44,7 +44,7 @@ impl ListBuilder {
     pub fn prepare(self) -> Result<ListRequest> {
         Ok(ListRequest {
             inner: self.inner,
-            folder_id: self.folder_id,
+            pdir_fid: self.pdir_fid,
             page: self.page,
             size: self.size,
         })
@@ -54,7 +54,7 @@ impl ListBuilder {
 /// Prepared list request.
 pub struct ListRequest {
     inner: Arc<QuarkPanInner>,
-    folder_id: String,
+    pdir_fid: String,
     page: u32,
     size: u32,
 }
@@ -64,7 +64,7 @@ impl ListRequest {
     pub async fn request(&self) -> Result<ListPage> {
         self.inner
             .api
-            .list_folder(&self.folder_id, self.page, self.size)
+            .list_folder(&self.pdir_fid, self.page, self.size)
             .await
     }
 }

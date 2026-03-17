@@ -15,6 +15,14 @@ The format loosely follows Keep a Changelog, and this workspace currently uses s
 - Added upload preparation, rapid-upload detection, and chunked upload support.
 - Added `quarkpan` CLI with `list`, `folder create`, `download`, and `upload`.
 
+## [0.2.0] - 2026-03-17
+
+### Changed
+
+- Changed public library builders and CLI parameters to align with Quark API naming, using `fid`, `pdir_fid`, and `file_name` instead of mixed semantic aliases such as `file_id`, `folder_id`, `parent_folder`, and `name`.
+- Changed upload and download result payloads in `libquarkpan` and `quarkpan` output structures to use `fid`.
+- Changed examples and READMEs to use the new naming consistently.
+
 ## [0.1.1] - 2026-03-15
 
 ### Added
@@ -26,6 +34,7 @@ The format loosely follows Keep a Changelog, and this workspace currently uses s
 - Added `download-dir` and `upload-dir` commands with directory task files.
 - Added explicit retry logic for interrupted downloads and multipart uploads.
 - Added file deletion support in `libquarkpan` for overwrite workflows.
+- Added file and folder rename support in `libquarkpan` and the `quarkpan rename` command.
 - Expanded `quarkpan` CLI with `auth`, `download-dir`, and `upload-dir`.
 
 ### Changed
