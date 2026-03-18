@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format loosely follows Keep a Changelog, and this workspace currently uses semantic versioning.
 
+## [0.3.0] - 2026-03-18
+
+### Changed
+
+- Changed `libquarkpan::QuarkPan::delete` from single-`fid` deletion to batch deletion with multiple `fid` values. This is a breaking API change.
+- Added `quarkpan delete` and batch deletion via repeated `--fid` arguments.
+- Bumped the workspace, `libquarkpan`, and `quarkpan` versions from `0.2.0` to `0.3.0`.
+
 ## [0.1.0] - 2026-03-15
 
 ### Added

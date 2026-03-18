@@ -12,7 +12,7 @@
 - 列出指定 `pdir_fid` 下的内容
 - 在指定 `pdir_fid` 下创建目录
 - 重命名指定文件或目录项
-- 删除指定文件或目录项
+- 删除一个或多个文件或目录项
 - 按 `fid` 获取下载信息和下载流
 - 上传预检
 - 快传判断
@@ -74,7 +74,7 @@ let fid = quark_pan
 ### 删除文件或目录项
 
 ```rust
-quark_pan.delete("fid").await?;
+quark_pan.delete(&["fid1", "fid2"]).await?;
 ```
 
 ### 重命名文件或目录项

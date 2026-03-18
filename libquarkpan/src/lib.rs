@@ -65,9 +65,12 @@ impl QuarkPan {
         RenameBuilder::new(self.inner.clone())
     }
 
-    /// Deletes an entry by fid.
-    pub async fn delete(&self, fid: &str) -> Result<()> {
-        self.inner.api.delete(fid).await
+    /// Deletes one or more entries by fid.
+    pub async fn delete<S>(&self, fids: &[S]) -> Result<()>
+    where
+        S: AsRef<str>,
+    {
+        self.inner.api.delete(fids).await
     }
 }
 

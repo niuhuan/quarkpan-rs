@@ -15,6 +15,7 @@
 - 平台标准配置目录中的 Cookie 持久化
 - 列出目录内容
 - 创建目录
+- 删除一个或多个文件或目录项
 - 重命名文件或目录项
 - 按文件 ID 下载
 - 按目录 ID 批量下载目录
@@ -105,6 +106,12 @@ quarkpan upload-dir --dir ./photos --pdir-fid 0 -c -o
 
 ```bash
 quarkpan rename --fid <fid> --file-name 新名字
+```
+
+删除一个或多个文件或目录项：
+
+```bash
+quarkpan delete --fid <fid1> --fid <fid2>
 ```
 
 `Ctrl+C` 行为：

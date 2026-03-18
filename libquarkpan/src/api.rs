@@ -221,11 +221,19 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn delete(&self, fid: &str) -> Result<()> {
+    pub async fn delete<S>(&self, fids: &[S]) -> Result<()>
+    where
+        S: AsRef<str>,
+    {
+        if fids.is_empty() {
+            return Err(QuarkPanError::invalid_argument(
+                "at least one fid is required",
+            ));
+        }
         let req = DeleteFilesRequest {
             action_type: 2,
             exclude_fids: Vec::new(),
-            filelist: vec![fid.to_string()],
+            filelist: fids.iter().map(|fid| fid.as_ref().to_string()).collect(),
         };
         let res: DeleteFilesResponse = self
             .post_json(

@@ -51,6 +51,7 @@ enum ColorMode {
 #[derive(Subcommand, Debug)]
 enum Commands {
     Auth(AuthArgs),
+    Delete(DeleteArgs),
     List(ListArgs),
     Download(DownloadArgs),
     DownloadDir(DownloadDirArgs),
@@ -90,6 +91,12 @@ struct SetCookieArgs {
 struct ImportCookieArgs {
     #[arg(long)]
     from_file: PathBuf,
+}
+
+#[derive(Args, Debug, Clone)]
+struct DeleteArgs {
+    #[arg(long, required = true, num_args = 1..)]
+    fid: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -238,6 +245,11 @@ struct RenameOutput {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct DeleteOutput {
+    fids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct AuthSourceOutput {
     source: String,
     path: Option<String>,
@@ -366,6 +378,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::Auth(_) => unreachable!(),
+        Commands::Delete(args) => handle_delete(flags, &quark_pan, args).await?,
         Commands::List(args) => handle_list(flags, &quark_pan, args).await?,
         Commands::Download(args) => handle_download(flags, &quark_pan, args).await?,
         Commands::DownloadDir(args) => handle_download_dir(flags, &quark_pan, args).await?,
@@ -548,6 +561,16 @@ async fn handle_list(
         .request()
         .await?;
     print_list_output(flags, &page, args.long, args.raw_time)
+}
+
+async fn handle_delete(
+    flags: OutputFlags,
+    quark_pan: &QuarkPan,
+    args: DeleteArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
+    quark_pan.delete(&args.fid).await?;
+    print_output(flags, &DeleteOutput { fids: args.fid })?;
+    Ok(())
 }
 
 async fn handle_list_more(
@@ -1200,7 +1223,7 @@ async fn handle_upload_dir(
                     continue;
                 }
             }
-            quark_pan.delete(&existing.fid).await?;
+            quark_pan.delete(&[existing.fid]).await?;
         }
 
         let upload_args = UploadArgs {
@@ -1542,6 +1565,17 @@ fn print_output<T: Serialize>(
         } else {
             format!("upload completed: {}", upload.fid)
         };
+        if flags.color {
+            println!("{}", rendered.green());
+        } else {
+            println!("{rendered}");
+        }
+    } else if let Ok(delete) = serde_json::from_value::<DeleteOutput>(value.clone()) {
+        let rendered = format!(
+            "deleted {} entr{}",
+            delete.fids.len(),
+            if delete.fids.len() == 1 { "y" } else { "ies" }
+        );
         if flags.color {
             println!("{}", rendered.green());
         } else {
