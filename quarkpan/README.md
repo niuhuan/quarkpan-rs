@@ -37,6 +37,17 @@
 - 上传分片失败后的显式重试
 - 下次通过 `-c, --continue` 恢复传输
 
+## TLS Features
+
+`quarkpan` 会把底层 `libquarkpan` 的 TLS backend feature 透传出来，命名与 `reqwest 0.13` 对齐，默认使用 `default-tls`。
+
+示例：
+
+```bash
+cargo install quarkpan
+cargo install quarkpan --no-default-features --features native-tls
+```
+
 ## 安装
 
 ### 使用 Cargo

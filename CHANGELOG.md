@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format loosely follows Keep a Changelog, and this workspace currently uses semantic versioning.
 
+## [0.4.0] - 2026-03-18
+
+### Changed
+
+- Bumped the workspace, `libquarkpan`, and `quarkpan` versions from `0.3.0` to `0.4.0`.
+- Upgraded `libquarkpan` from `reqwest 0.12.x` to `reqwest 0.13.2`.
+- Renamed the public TLS feature set in `libquarkpan` and `quarkpan` to align with `reqwest 0.13`, using `default-tls`, `native-tls`, `native-tls-vendored`, `rustls`, and `rustls-no-provider`.
+
 ## [0.3.0] - 2026-03-18
 
 ### Changed
@@ -11,6 +19,7 @@ The format loosely follows Keep a Changelog, and this workspace currently uses s
 - Changed `libquarkpan::QuarkPan::delete` from single-`fid` deletion to batch deletion with multiple `fid` values. This is a breaking API change.
 - Added `quarkpan delete` and batch deletion via repeated `--fid` arguments.
 - Bumped the workspace, `libquarkpan`, and `quarkpan` versions from `0.2.0` to `0.3.0`.
+- Added selectable TLS backend features for `libquarkpan` and `quarkpan`, with `rustls-tls` as the default and explicit forwarding for `native-tls` and other `reqwest` TLS variants.
 
 ## [0.1.0] - 2026-03-15
 

@@ -8,6 +8,29 @@ mod rename;
 mod transfer;
 mod upload;
 
+#[cfg(not(any(
+    feature = "default-tls",
+    feature = "native-tls",
+    feature = "native-tls-vendored",
+    feature = "rustls",
+    feature = "rustls-no-provider",
+)))]
+compile_error!("enable exactly one TLS backend feature for libquarkpan");
+
+#[cfg(any(
+    all(feature = "default-tls", feature = "native-tls"),
+    all(feature = "default-tls", feature = "native-tls-vendored"),
+    all(feature = "default-tls", feature = "rustls"),
+    all(feature = "default-tls", feature = "rustls-no-provider"),
+    all(feature = "native-tls", feature = "native-tls-vendored"),
+    all(feature = "native-tls", feature = "rustls"),
+    all(feature = "native-tls", feature = "rustls-no-provider"),
+    all(feature = "native-tls-vendored", feature = "rustls"),
+    all(feature = "native-tls-vendored", feature = "rustls-no-provider"),
+    all(feature = "rustls", feature = "rustls-no-provider"),
+))]
+compile_error!("enable only one TLS backend feature for libquarkpan");
+
 pub use crate::download::{DownloadBuilder, DownloadRequest};
 pub use crate::error::{QuarkPanError, Result};
 pub use crate::folder::CreateFolderBuilder;

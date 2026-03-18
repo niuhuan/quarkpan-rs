@@ -11,6 +11,14 @@ repository = { workspace = true }
 keywords = ["quark", "quark-drive", "cli", "upload", "download"]
 categories = ["command-line-utilities"]
 
+[features]
+default = ["default-tls"]
+default-tls = ["libquarkpan/default-tls"]
+native-tls = ["libquarkpan/native-tls"]
+native-tls-vendored = ["libquarkpan/native-tls-vendored"]
+rustls = ["libquarkpan/rustls"]
+rustls-no-provider = ["libquarkpan/rustls-no-provider"]
+
 [dependencies]
 base64 = "0.22.1"
 bytes = "1.10.1"

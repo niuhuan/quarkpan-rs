@@ -28,6 +28,29 @@
 - 基于 `${filename}.quark.task` 的 CLI 恢复机制
 - 基于 `目录名.quark.task` 的目录任务恢复机制
 
+## TLS Features
+
+`libquarkpan` 和 `quarkpan` 都支持通过 Cargo feature 选择 TLS backend，命名与 `reqwest 0.13` 对齐，默认使用 `default-tls`。
+
+可选 feature：
+
+- `default-tls`
+- `native-tls`
+- `native-tls-vendored`
+- `rustls`
+- `rustls-no-provider`
+
+约束：
+
+- 必须且只能启用一个 TLS backend feature
+
+示例：
+
+```bash
+cargo check -p libquarkpan
+cargo check -p libquarkpan --no-default-features --features native-tls
+```
+
 目前接口仍然以文件 ID 和目录 ID 为主，路径解析和更高层缓存策略预留给上层应用。
 
 ## Workspace 结构

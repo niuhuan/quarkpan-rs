@@ -22,6 +22,30 @@
 - 上传分片级重试与完成阶段重试
 - 导出 `UploadResume` / `UploadResumeState` 供上层做断点续传
 
+## TLS Features
+
+`libquarkpan` 现在把 TLS backend 作为 Cargo feature 暴露出来，命名与 `reqwest 0.13` 对齐，默认使用 `default-tls`。
+
+可选 feature：
+
+- `default-tls`
+- `native-tls`
+- `native-tls-vendored`
+- `rustls`
+- `rustls-no-provider`
+
+约束：
+
+- 必须且只能启用一个 TLS backend feature
+- 默认构建等价于启用 `default-tls`
+
+示例：
+
+```bash
+cargo add libquarkpan
+cargo add libquarkpan --no-default-features --features native-tls
+```
+
 ## 设计边界
 
 当前库刻意保留了以下边界：
